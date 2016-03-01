@@ -1,0 +1,218 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "Create an Amazon EC2 instance running Ambari.",
+
+  "Parameters" : {
+    "KeyName": {
+      "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instance",
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "Default": "dev",
+      "ConstraintDescription" : "must be the name of an existing EC2 KeyPair."
+    },
+    "SubnetId": {
+        "Description": "Target Private SubnetId where the Ambari instances will be launched",
+        "Type": "AWS::EC2::Subnet::Id"
+    },
+    "AmbariInstanceType" : {
+      "Description" : "Ambari EC2 instance type",
+      "Type" : "String",
+      "Default" : "t2.medium",
+      "AllowedValues" : [ "t2.medium", "m3.medium" ],
+      "ConstraintDescription" : "must be a valid EC2 instance type."
+    },
+    "ELBSubnetId": {
+      "Description": "Target public SubnetId where ELB for Ambari is deployed",
+      "Type": "List<AWS::EC2::Subnet::Id>"
+    },
+    "AmbariSecurityGroup": {
+      "Type": "List<AWS::EC2::SecurityGroup::Id>",
+      "Description": "AmbariSecurityGroup created in VPC template"
+    },
+    "ELBSecurityGroup": {
+      "Type": "List<AWS::EC2::SecurityGroup::Id>",
+      "Description": "ELBSecurityGroup created in VPC template"
+    }
+  },
+
+  "Mappings" : {
+    "RegionalAMIs" : {
+      "us-east-1"        : {"Ambari" : "ami-5328fe38"},
+      "us-west-2"        : {"Ambari" : "ami-0ff3f13f"},
+      "us-west-1"        : {"Ambari" : "ami-498a780d"},
+      "eu-west-1"        : {"Ambari" : "ami-74d29c03"},
+      "eu-central-1"     : {"Ambari" : "ami-8c96ac91"},
+      "ap-northeast-1"   : {"Ambari" : "ami-74379d74"},
+      "ap-northeast-2"   : {"Ambari" : "ami-18cc0276"},
+      "ap-southeast-1"   : {"Ambari" : "ami-f6edeea4"},
+      "ap-southeast-2"   : {"Ambari" : "ami-7b0d4b41"},
+      "sa-east-1"        : {"Ambari" : "ami-d5d35cc8"}
+    }
+
+  },
+
+  "Resources" : {
+    "AmbariInstanceRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "s3.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Principal": {"Service": ["lambda.amazonaws.com"]},
+              "Action": ["sts:AssumeRole"]
+            }
+          ]
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "AmbariInstancePolicy",
+            "PolicyDocument": {
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:Get*",
+                    "s3:List*"
+                  ],
+                  "Resource": "*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents",
+                    "ec2:CreateNetworkInterface",
+                    "ec2:DescribeNetworkInterfaces",
+                    "ec2:DeleteNetworkInterface"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "AmbariInstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Path": "/",
+        "Roles": [
+          {
+            "Ref": "AmbariInstanceRole"
+          }
+        ]
+      }
+    },
+    "EC2Instance" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "InstanceType" : { "Ref" : "AmbariInstanceType" },
+        "SecurityGroupIds" : { "Ref" : "AmbariSecurityGroup" },
+        "SubnetId": { "Ref": "SubnetId" },
+        "KeyName" : { "Ref" : "KeyName" },
+        "ImageId" : { "Fn::FindInMap" : [ "RegionalAMIs", { "Ref" : "AWS::Region" }, "Ambari" ] },
+        "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
+             "#!/bin/bash -xe\n",
+             "chkconfig ntpd on\n",
+             "service ntpd start\n",
+             "echo 'umask 022' > /etc/profile.d/umask.sh\n",
+             "setenforce 0\n",
+             "sed -i 's/^SELINUX=.*$/SELINUX=permissive/' /etc/selinux/config\n",
+             "test -f /sys/kernel/mm/transparent_hugepage/enabled && echo never > /sys/kernel/mm/redhat_transparent_hugepage/enabled\n",
+             "test -f /sys/kernel/mm/transparent_hugepage/defrag && echo never > /sys/kernel/mm/redhat_transparent_hugepage/defrag\n",   
+             "cd /tmp && curl -O https://bootstrap.pypa.io/get-pip.py && python get-pip.py && pip install awscli\n",
+             "cd /etc/yum.repos.d && wget http://public-repo-1.hortonworks.com/ambari/centos6/2.x/updates/2.2.0.0/ambari.repo\n",
+             "yum install ambari-server -y\n",
+             "cat <<EOF | ambari-server setup\n",
+             "y\n",
+             "y\n",
+             "ec2-user\n",
+             "n\n",
+             "2\n",
+             "\n",
+             "\n",
+             "EOF\n",
+             "ambari-server start\n"
+        ]]}}
+      }
+    },
+    "ElasticLoadBalancer": {
+        "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+        "Properties": {
+            "Instances": [ { "Ref": "EC2Instance" } ],
+            "LoadBalancerName": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  "ambari-elb"
+                ]
+              ]
+            },
+            "Subnets": { "Ref": "ELBSubnetId" },
+            "SecurityGroups": { "Ref": "ELBSecurityGroup" },
+            "CrossZone": "false",
+            "Listeners": [
+                {
+                    "LoadBalancerPort": "80",
+                    "InstancePort": "8080",
+                    "Protocol": "HTTP"
+                }
+            ],
+            "HealthCheck": {
+                "Target": "HTTP:8080/",
+                "HealthyThreshold": "3",
+                "UnhealthyThreshold": "5",
+                "Interval": "30",
+                "Timeout": "5"
+            }
+        }
+    }
+  },
+
+  "Outputs" : {
+    "InstanceId" : {
+      "Description" : "InstanceId of the newly created EC2 instance",
+      "Value" : { "Ref" : "EC2Instance" }
+    },
+    "AZ" : {
+      "Description" : "Availability Zone of the newly created EC2 instance",
+      "Value" : { "Fn::GetAtt" : [ "EC2Instance", "AvailabilityZone" ] }
+    },
+    "PrivateDns" : {
+      "Description" : "Public DNSName of the newly created EC2 instance",
+      "Value" : { "Fn::GetAtt" : [ "EC2Instance", "PrivateDnsName" ] }
+    },
+    "PrivateIpAddress" : {
+      "Description" : "Public DNSName of the newly created EC2 instance",
+      "Value" : { "Fn::GetAtt" : [ "EC2Instance", "PrivateIp" ] }
+    },
+    "AmbariInstanceRole" : {
+      "Description" : "Ambari Instance Role",
+      "Value" : { "Ref" : "AmbariInstanceRole" }
+    },
+    "ELBForAmbari": {
+      "Description": "ELB for Ambari",
+      "Value": {
+        "Ref": "ElasticLoadBalancer"
+      }
+    }
+  }
+}

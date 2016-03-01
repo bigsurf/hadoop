@@ -1,0 +1,312 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  
+  "Description": "Nested Stack - VPC, Ambari instance, Hadoop instances, and S3 setup",
+  
+  "Parameters": {
+
+    "Environment" : {
+      "Description" : "Environment",
+      "Type" : "String",
+      "AllowedValues" : [ "dev", "staging", "prod" ]
+    }, 
+
+    "PlacementGroup": {
+      "Description": "Create in Placement Group",
+      "Type": "String",
+      "Default" : "false",
+      "AllowedValues": [
+        "true",
+        "false"
+      ],
+      "ConstraintDescription": "Select true if you want to create it in a placement group."
+    },
+
+    "KeyName": {
+      "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instance",
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "Default": "dev",
+      "ConstraintDescription" : "must be the name of an existing EC2 KeyPair."
+    },
+
+    "BastionInstanceType" : {
+      "Description" : "NAT EC2 instance type",
+      "Type" : "String",
+      "Default" : "t2.medium",
+      "AllowedValues" : [ "t2.medium", "m3.medium" ],
+      "ConstraintDescription" : "must be a valid EC2 instance type."
+    },
+
+    "AmbariInstanceType" : {
+      "Description" : "Ambari EC2 instance type",
+      "Type" : "String",
+      "Default" : "t2.medium",
+      "AllowedValues" : [ "t2.medium", "m3.medium" ],
+      "ConstraintDescription" : "must be a valid EC2 instance type."
+    },
+
+    "HadoopInstanceType" : {
+      "Description" : "WebServer EC2 instance type",
+      "Type" : "String",
+      "Default" : "d2.4xlarge",
+      "AllowedValues" : [ "c3.large", "c3.xlarge", "c3.2xlarge", "c3.4xlarge", "c3.8xlarge", "c4.large", "c4.xlarge", "c4.2xlarge", "c4.4xlarge", "c4.8xlarge", "d2.xlarge", "d2.2xlarge", "d2.4xlarge", "d2.8xlarge" ],
+      "ConstraintDescription" : "must be a valid EC2 instance type."
+    },
+
+    "VPCNetworkPrefix": {
+      "Description": "The network prefix (first 2 octets of an IP address) to be used for the VPCs internal network.",
+      "Type": "String",
+      "Default": "10.0",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})"
+    },
+    
+    "SSHLocation" : {
+      "Description" : " The IP address range that can be used to SSH to the EC2 instances",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "Default": "72.21.196.0/24",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+    }
+  },
+
+  "Conditions": {
+    "UsePlacementGroup" : { "Fn::Equals" : [ {"Ref" : "PlacementGroup"}, "true" ] },
+    "NotUsePlacementGroup" : { "Fn::Equals" : [ {"Ref" : "PlacementGroup"}, "false" ] }  
+  },
+
+  "Resources": {
+
+    "VPC": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "https://s3.amazonaws.com/bb-us-east-1-webops-cloudformation-dev/hadoop/vpc.cform",
+        "Parameters": {
+          "KeyName": { "Ref": "KeyName" },
+          "Environment": { "Ref": "Environment" },
+          "BastionInstanceType": { "Ref": "BastionInstanceType" },
+          "VPCNetworkPrefix": { "Ref": "VPCNetworkPrefix" },
+          "SSHLocation": { "Ref": "SSHLocation" }
+        }
+      }
+    },
+
+    "PlacementGroupStack": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Condition": "UsePlacementGroup",
+      "Properties": {
+        "TemplateURL": "https://s3.amazonaws.com/bb-us-east-1-webops-cloudformation-dev/hadoop/placement_group.cform"
+      }
+    },
+
+    "Ambari": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "https://s3.amazonaws.com/bb-us-east-1-webops-cloudformation-dev/hadoop/ambari.cform",
+        "Parameters": {
+          "KeyName": { "Ref": "KeyName" },
+          "SubnetId" : { "Fn::GetAtt" : [ "VPC", "Outputs.PrivateSubnet" ] },
+          "AmbariInstanceType": { "Ref": "AmbariInstanceType" },
+          "AmbariSecurityGroup": { "Fn::GetAtt" : [ "VPC", "Outputs.AmbariSecurityGroup" ] },
+          "ELBSecurityGroup": { "Fn::GetAtt" : [ "VPC", "Outputs.ELBSecurityGroup" ] },
+          "ELBSubnetId": { "Fn::GetAtt" : [ "VPC", "Outputs.PublicSubnet" ]}
+        }
+      }
+    },
+
+    "HadoopInstance1": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "https://s3.amazonaws.com/bb-us-east-1-webops-cloudformation-dev/hadoop/hadoop.cform",
+        "Parameters": {
+          "KeyName": { "Ref": "KeyName" },
+          "InstanceType": { "Ref": "HadoopInstanceType" },
+          "PlacementGroup": {"Ref": "PlacementGroup" },
+          "PlacementGroupName": { "Fn::If" : [ "UsePlacementGroup", 
+            {"Fn::GetAtt" : [ "PlacementGroupStack", "Outputs.PlacementGroup" ]}, "false"
+          ]},
+          "SubnetId" : { "Fn::GetAtt" : [ "VPC", "Outputs.PrivateSubnet" ] },
+          "HadoopInstanceSecurityGroupId": { "Fn::GetAtt" : [ "VPC", "Outputs.HadoopSecurityGroup" ] },
+          "AmbariPrivateDns": { "Fn::GetAtt" : [ "Ambari", "Outputs.PrivateDns" ] }
+        }
+      }
+    },
+    "HadoopInstance2": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "https://s3.amazonaws.com/bb-us-east-1-webops-cloudformation-dev/hadoop/hadoop.cform",
+        "Parameters": {
+          "KeyName": { "Ref": "KeyName" },
+          "InstanceType": { "Ref": "HadoopInstanceType" },
+          "PlacementGroup": {"Ref": "PlacementGroup" },
+          "PlacementGroupName": { "Fn::If" : [ "UsePlacementGroup", 
+            {"Fn::GetAtt" : [ "PlacementGroupStack", "Outputs.PlacementGroup" ]}, "false"
+          ]},
+          "SubnetId" : { "Fn::GetAtt" : [ "VPC", "Outputs.PrivateSubnet" ] },
+          "HadoopInstanceSecurityGroupId": { "Fn::GetAtt" : [ "VPC", "Outputs.HadoopSecurityGroup" ] },
+          "AmbariPrivateDns": { "Fn::GetAtt" : [ "Ambari", "Outputs.PrivateDns" ] }
+        }
+      }
+    },
+    "HadoopInstance3": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "https://s3.amazonaws.com/bb-us-east-1-webops-cloudformation-dev/hadoop/hadoop.cform",
+        "Parameters": {
+          "KeyName": { "Ref": "KeyName" },
+          "InstanceType": { "Ref": "HadoopInstanceType" },
+          "PlacementGroup": {"Ref": "PlacementGroup" },
+          "PlacementGroupName": { "Fn::If" : [ "UsePlacementGroup", 
+            {"Fn::GetAtt" : [ "PlacementGroupStack", "Outputs.PlacementGroup" ]}, "false"
+          ]},
+          "SubnetId" : { "Fn::GetAtt" : [ "VPC", "Outputs.PrivateSubnet" ] },
+          "HadoopInstanceSecurityGroupId": { "Fn::GetAtt" : [ "VPC", "Outputs.HadoopSecurityGroup" ] },
+          "AmbariPrivateDns": { "Fn::GetAtt" : [ "Ambari", "Outputs.PrivateDns" ] }
+        }
+      }
+    },
+    "HadoopInstance4": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "https://s3.amazonaws.com/bb-us-east-1-webops-cloudformation-dev/hadoop/hadoop.cform",
+        "Parameters": {
+          "KeyName": { "Ref": "KeyName" },
+          "InstanceType": { "Ref": "HadoopInstanceType" },
+          "PlacementGroup": {"Ref": "PlacementGroup" },
+          "PlacementGroupName": { "Fn::If" : [ "UsePlacementGroup", 
+            {"Fn::GetAtt" : [ "PlacementGroupStack", "Outputs.PlacementGroup" ]}, "false"
+          ]},
+          "SubnetId" : { "Fn::GetAtt" : [ "VPC", "Outputs.PrivateSubnet" ] },
+          "HadoopInstanceSecurityGroupId": { "Fn::GetAtt" : [ "VPC", "Outputs.HadoopSecurityGroup" ] },
+          "AmbariPrivateDns": { "Fn::GetAtt" : [ "Ambari", "Outputs.PrivateDns" ] }
+        }
+      }
+    },
+    "HadoopInstance5": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "https://s3.amazonaws.com/bb-us-east-1-webops-cloudformation-dev/hadoop/hadoop.cform",
+        "Parameters": {
+          "KeyName": { "Ref": "KeyName" },
+          "InstanceType": { "Ref": "HadoopInstanceType" },
+          "PlacementGroup": {"Ref": "PlacementGroup" },
+          "PlacementGroupName": { "Fn::If" : [ "UsePlacementGroup", 
+            {"Fn::GetAtt" : [ "PlacementGroupStack", "Outputs.PlacementGroup" ]}, "false"
+          ]},
+          "SubnetId" : { "Fn::GetAtt" : [ "VPC", "Outputs.PrivateSubnet" ] },
+          "HadoopInstanceSecurityGroupId": { "Fn::GetAtt" : [ "VPC", "Outputs.HadoopSecurityGroup" ] },
+          "AmbariPrivateDns": { "Fn::GetAtt" : [ "Ambari", "Outputs.PrivateDns" ] }
+        }
+      }
+    },
+    "HadoopInstance6": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "https://s3.amazonaws.com/bb-us-east-1-webops-cloudformation-dev/hadoop/hadoop.cform",
+        "Parameters": {
+          "KeyName": { "Ref": "KeyName" },
+          "InstanceType": { "Ref": "HadoopInstanceType" },
+          "PlacementGroup": {"Ref": "PlacementGroup" },
+          "PlacementGroupName": { "Fn::If" : [ "UsePlacementGroup", 
+            {"Fn::GetAtt" : [ "PlacementGroupStack", "Outputs.PlacementGroup" ]}, "false"
+          ]},
+          "SubnetId" : { "Fn::GetAtt" : [ "VPC", "Outputs.PrivateSubnet" ] },
+          "HadoopInstanceSecurityGroupId": { "Fn::GetAtt" : [ "VPC", "Outputs.HadoopSecurityGroup" ] },
+          "AmbariPrivateDns": { "Fn::GetAtt" : [ "Ambari", "Outputs.PrivateDns" ] }
+        }
+      }
+    },
+    "HadoopInstance7": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "https://s3.amazonaws.com/bb-us-east-1-webops-cloudformation-dev/hadoop/hadoop.cform",
+        "Parameters": {
+          "KeyName": { "Ref": "KeyName" },
+          "InstanceType": { "Ref": "HadoopInstanceType" },
+          "PlacementGroup": {"Ref": "PlacementGroup" },
+          "PlacementGroupName": { "Fn::If" : [ "UsePlacementGroup", 
+            {"Fn::GetAtt" : [ "PlacementGroupStack", "Outputs.PlacementGroup" ]}, "false"
+          ]},
+          "SubnetId" : { "Fn::GetAtt" : [ "VPC", "Outputs.PrivateSubnet" ] },
+          "HadoopInstanceSecurityGroupId": { "Fn::GetAtt" : [ "VPC", "Outputs.HadoopSecurityGroup" ] },
+          "AmbariPrivateDns": { "Fn::GetAtt" : [ "Ambari", "Outputs.PrivateDns" ] }
+        }
+      }
+    },
+    "HadoopInstance8": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "https://s3.amazonaws.com/bb-us-east-1-webops-cloudformation-dev/hadoop/hadoop.cform",
+        "Parameters": {
+          "KeyName": { "Ref": "KeyName" },
+          "InstanceType": { "Ref": "HadoopInstanceType" },
+          "PlacementGroup": {"Ref": "PlacementGroup" },
+          "PlacementGroupName": { "Fn::If" : [ "UsePlacementGroup", 
+            {"Fn::GetAtt" : [ "PlacementGroupStack", "Outputs.PlacementGroup" ]}, "false"
+          ]},
+          "SubnetId" : { "Fn::GetAtt" : [ "VPC", "Outputs.PrivateSubnet" ] },
+          "HadoopInstanceSecurityGroupId": { "Fn::GetAtt" : [ "VPC", "Outputs.HadoopSecurityGroup" ] },
+          "AmbariPrivateDns": { "Fn::GetAtt" : [ "Ambari", "Outputs.PrivateDns" ] }
+        }
+      }
+    },
+    "HadoopInstance9": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "https://s3.amazonaws.com/bb-us-east-1-webops-cloudformation-dev/hadoop/hadoop.cform",
+        "Parameters": {
+          "KeyName": { "Ref": "KeyName" },
+          "InstanceType": { "Ref": "HadoopInstanceType" },
+          "PlacementGroup": {"Ref": "PlacementGroup" },
+          "PlacementGroupName": { "Fn::If" : [ "UsePlacementGroup", 
+            {"Fn::GetAtt" : [ "PlacementGroupStack", "Outputs.PlacementGroup" ]}, "false"
+          ]},
+          "SubnetId" : { "Fn::GetAtt" : [ "VPC", "Outputs.PrivateSubnet" ] },
+          "HadoopInstanceSecurityGroupId": { "Fn::GetAtt" : [ "VPC", "Outputs.HadoopSecurityGroup" ] },
+          "AmbariPrivateDns": { "Fn::GetAtt" : [ "Ambari", "Outputs.PrivateDns" ] }
+        }
+      }
+    },
+    "HadoopInstance10": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "https://s3.amazonaws.com/bb-us-east-1-webops-cloudformation-dev/hadoop/hadoop.cform",
+        "Parameters": {
+          "KeyName": { "Ref": "KeyName" },
+          "InstanceType": { "Ref": "HadoopInstanceType" },
+          "PlacementGroup": {"Ref": "PlacementGroup" },
+          "PlacementGroupName": { "Fn::If" : [ "UsePlacementGroup", 
+            {"Fn::GetAtt" : [ "PlacementGroupStack", "Outputs.PlacementGroup" ]}, "false"
+          ]},
+          "SubnetId" : { "Fn::GetAtt" : [ "VPC", "Outputs.PrivateSubnet" ] },
+          "HadoopInstanceSecurityGroupId": { "Fn::GetAtt" : [ "VPC", "Outputs.HadoopSecurityGroup" ] },
+          "AmbariPrivateDns": { "Fn::GetAtt" : [ "Ambari", "Outputs.PrivateDns" ] }
+        }
+      }
+    }
+  },
+
+  "Outputs": {
+  
+    "VpcId": {
+      "Description": "VPC Id",
+      "Value": {
+        "Fn::GetAtt": [
+          "VPC",
+          "Outputs.VpcId"
+        ]
+      }
+    },
+  
+    "AmbariPrivateDns": {
+      "Description": "Private DNS of Ambari server",
+      "Value": {
+        "Fn::GetAtt": [
+          "Ambari",
+          "Outputs.PrivateDns"
+        ]
+      }
+    }
+  }
+}

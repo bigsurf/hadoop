@@ -1,0 +1,21 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Create a placement group for Hadoop.",
+
+  "Resources": {
+    "PlacementGroupCluster" : {
+      "Type" : "AWS::EC2::PlacementGroup",
+      "Properties" : {
+        "Strategy" : "cluster"
+      }
+    }
+  },
+  "Outputs": {
+    "PlacementGroup": {
+      "Description": "Hadoop instances placement group",
+      "Value": { 
+        "Ref": "PlacementGroupCluster"
+      }
+    }
+  }
+}
