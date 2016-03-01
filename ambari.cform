@@ -155,17 +155,6 @@
         "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
         "Properties": {
             "Instances": [ { "Ref": "EC2Instance" } ],
-            "LoadBalancerName": {
-              "Fn::Join": [
-                "-",
-                [
-                  {
-                    "Ref": "AWS::StackName"
-                  },
-                  "elb"
-                ]
-              ]
-            },
             "Subnets": { "Ref": "ELBSubnetId" },
             "SecurityGroups": { "Ref": "ELBSecurityGroup" },
             "CrossZone": "false",

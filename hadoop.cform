@@ -421,7 +421,7 @@
                 "while read DISK; do\n",
                 "ebs_i=`expr $ebs_i + 1`; mkdir -p /hadoop$ebs_i; chmod 755 /hadoop$ebs_i\n",
                 "( mkfs -t ext4 /dev/${DISK} && mount /dev/${DISK} /hadoop$ebs_i && chmod 777 /hadoop$ebs_i ) 2>&1 >>/var/log/userdata.log &\n",
-                "done <<< \"$( lsblk | sed '1,3d' | cut -d' ' -f1 )\"\n",
+                "done <<< \"$( lsblk | sort | sed '1,3d' | cut -d' ' -f1 )\"\n",
                 "echo Number of disks to be used for Hadoop: $ebs_i\n",
                 "while [ $( ls -ld /hadoop* | grep '^.rwxrwxrwx' | wc -l ) -lt $ebs_i ]; do\n",
                 "sleep 1; echo Number of disks ready: $( ls -ld /hadoop* | grep '^.rwxrwxrwx' | wc -l )\n",
