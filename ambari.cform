@@ -160,9 +160,9 @@
                 "-",
                 [
                   {
-                    "Ref": "AWS::Region"
+                    "Ref": "AWS::StackName"
                   },
-                  "ambari-elb"
+                  "elb"
                 ]
               ]
             },
@@ -211,7 +211,7 @@
     "ELBForAmbari": {
       "Description": "ELB for Ambari",
       "Value": {
-        "Ref": "ElasticLoadBalancer"
+        "Fn::GetAtt": [ "ElasticLoadBalancer", "DNSName" ]
       }
     }
   }

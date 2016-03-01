@@ -382,6 +382,25 @@
           ]
         },
         "IamInstanceProfile": { "Ref": "HadoopInstanceProfile" },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  {
+                    "Ref": "AWS::StackName"
+                  },
+                  "-ec2"
+                ]
+              ]
+            }
+          }
+        ],
         "UserData": {
           "Fn::Base64": {
             "Fn::Join": [
@@ -1567,6 +1586,25 @@
           ]
         },
         "IamInstanceProfile": { "Ref": "HadoopInstanceProfile" },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  {
+                    "Ref": "AWS::StackName"
+                  },
+                  "-ec2"
+                ]
+              ]
+            }
+          }
+        ],
         "UserData": {
           "Fn::Base64": {
             "Fn::Join": [
