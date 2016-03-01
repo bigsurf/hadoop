@@ -42,13 +42,13 @@
         },
         "EBSType" : {
            "Type" : "String",
-           "Description" : "Type of EBS volume required. Allowed values are - iops or standard or gp2",
+           "Description" : "Type of EBS volume required.",
            "Default": "io1",
-           "AllowedValues" : ["standard","gp2", "io1"]
+           "AllowedValues" : ["io1"]
         },
         "IOPS": {
             "Type": "Number",
-            "Description": "EBS volume size that will be attached to the instance.",
+            "Description": "EBS volume size that will be attached to the instance. Size : IOPS ratio should be 1:30, if not the template would fail",
             "Default": "400",
             "MaxValue": "20000"
         },        
@@ -59,12 +59,12 @@
         },
         "UserNameTag": {
         	"Type": "String",
-        	"Default": "test-user",
+        	"Default": "POC-User",
             "Description": "Please enter the UserNameTag for the account to be created on the clients"
         },
         "UserGroupTag": {
         	"Type": "String",
-        	"Default": "test-group",
+        	"Default": "Hadoop-POC-Group",
             "Description": "Please enter the UserNameTag for the account to be created on the clients."
         },
         "AZval": {
@@ -701,31 +701,31 @@
 						"Device" : "xvdad"
 						}
 	   },
-       "myinstance" : {
-            "Type" : "AWS::EC2::Instance",
-            "Properties" : {
-                "ImageId" : {"Ref" : "AMIID"},
-                "InstanceType": { "Ref": "InstanceType" },
-                "SubnetId" : {"Ref" : "SubnetId" },
-                "KeyName": { "Ref": "KeyName" },
-		        "Tags" : [ {"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
-		        		   {"Key" : "Name", "Value" : {"Ref": "UserNameTag"}},
-		        		   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
-		        		   ],		   
-                "BlockDeviceMappings" : [
-                						 {"DeviceName": "/dev/xvda",
-                						  "Ebs": {
- 												              "DeleteOnTermination":"true",              						  
-                						          "VolumeSize": "20", 
-                						          "VolumeType" : {"Ref":"EBSType"},
-                                      "Iops" : { "Ref": "IOPS"}
-                						          }}
-                						 ]     
-            }
+     "myinstance" : {
+        "Type" : "AWS::EC2::Instance",
+        "Properties" : {
+            "ImageId" : {"Ref" : "AMIID"},
+            "InstanceType": { "Ref": "InstanceType" },
+            "SubnetId" : {"Ref" : "SubnetId" },
+            "KeyName": { "Ref": "KeyName" },
+        "Tags" : [ {"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+        		   {"Key" : "Name", "Value" : {"Ref": "UserNameTag"}},
+        		   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+        		   ],		   
+            "BlockDeviceMappings" : [
+            						 {"DeviceName": "/dev/xvda",
+            						  "Ebs": {
+											            "DeleteOnTermination":"true",              						  
+            						          "VolumeSize": "20", 
+            						          "VolumeType" : {"Ref":"EBSType"},
+                                  "Iops" : { "Ref": "IOPS"}
+            						          }}
+            						 ]     
         }
+      }
      },
      "Outputs" : {
-          "InstanceId" : {
+        "InstanceId" : {
 				"Value" : { "Ref" : "myinstance" },
 				"Description" : "Instance Id of newly created VSA instance"
 	      },
