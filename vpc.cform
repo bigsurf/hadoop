@@ -575,6 +575,12 @@
           },
           {
             "IpProtocol": "tcp",
+            "FromPort": "22",
+            "ToPort": "22",
+            "SourceSecurityGroupId": { "Ref": "AmbariSecurityGroup" }
+          },
+          {
+            "IpProtocol": "tcp",
             "FromPort": "1024",
             "ToPort": "65535",
             "CidrIp": {

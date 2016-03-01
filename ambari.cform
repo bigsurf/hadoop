@@ -155,17 +155,6 @@
         "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
         "Properties": {
             "Instances": [ { "Ref": "EC2Instance" } ],
-            "LoadBalancerName": {
-              "Fn::Join": [
-                "-",
-                [
-                  {
-                    "Ref": "AWS::Region"
-                  },
-                  "ambari-elb"
-                ]
-              ]
-            },
             "Subnets": { "Ref": "ELBSubnetId" },
             "SecurityGroups": { "Ref": "ELBSecurityGroup" },
             "CrossZone": "false",
@@ -211,7 +200,7 @@
     "ELBForAmbari": {
       "Description": "ELB for Ambari",
       "Value": {
-        "Ref": "ElasticLoadBalancer"
+        "Fn::GetAtt": [ "ElasticLoadBalancer", "DNSName" ]
       }
     }
   }
