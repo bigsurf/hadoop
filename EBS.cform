@@ -1,0 +1,853 @@
+{
+
+    "Description": "Deploys a linux instance and creates and attaches (up to 24) EBS volumes based on user input to that instance.",
+    "Parameters": {
+        "InstanceType": {
+            "Type": "String",
+            "Default": "t2.micro",
+            "Description": "Enter one of the instances type for this deployment."
+        },
+        "AMIID": {
+        	"Type": "String",
+          "Default": "ami-8fcee4e5",
+        	"Description": "Enter the Linux AMI-ID that you want to deploy."
+        },
+        "KeyName": {
+            "Description": "Name of an existing EC2 KeyPair to enable SSH/RDP access to EC2 instances",
+            "Type": "AWS::EC2::KeyPair::KeyName",
+            "ConstraintDescription": "Must be the name of an existing EC2 KeyPair.",
+            "Default": "dev"
+        },
+        "VpcId" : {
+            "Default": "vpc-id",
+      	    "Description" : "VpcId of your existing Virtual Private Cloud (VPC)",
+            "Type" : "AWS::EC2::VPC::Id"
+        },
+        "SubnetId" : {
+           "Description" : "SubnetId of an existing subnet in your Virtual Private Cloud (VPC). NOTE:- The subnet should be part of the AZ selected.",
+           "Type" : "AWS::EC2::Subnet::Id"
+        },
+        "EBSsize": {
+            "Type": "Number",
+            "Description": "EBS volume size that will be attached to the instance.",
+            "Default": "10",
+            "MaxValue": "16384"
+        },
+        "EBSCount" : {
+        	"Type": "Number",
+        	"Description" : "Enter the number of EBS volumes you want to attach. Range is 0-24 devices.",
+        	"Default": "1",
+        	"MaxValue": "24",
+            "MinValue": "0"
+        },
+        "EBSType" : {
+           "Type" : "String",
+           "Description" : "Type of EBS volume required. Allowed values are - iops or standard or gp2",
+           "Default": "io1",
+           "AllowedValues" : ["standard","gp2", "io1"]
+        },
+        "IOPS": {
+            "Type": "Number",
+            "Description": "EBS volume size that will be attached to the instance.",
+            "Default": "400",
+            "MaxValue": "20000"
+        },        
+        "EnvironmentTag": {
+            "Type": "String",
+            "Default": "hadoop-poc",
+            "Description": "Please name your Environment. This will tag all your instances with this name"
+        },
+        "UserNameTag": {
+        	"Type": "String",
+        	"Default": "test-user",
+            "Description": "Please enter the UserNameTag for the account to be created on the clients"
+        },
+        "UserGroupTag": {
+        	"Type": "String",
+        	"Default": "test-group",
+            "Description": "Please enter the UserNameTag for the account to be created on the clients."
+        },
+        "AZval": {
+            "Type": "AWS::EC2::AvailabilityZone::Name",
+            "Description": "AZ in which the instance and EBS volumes will be deployed."
+        }
+    },
+    "Conditions": {
+		"Data1" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "1"]},{"Condition" : "Data2"},{"Condition" : "Data3"},{"Condition" : "Data4"},{"Condition" : "Data5"},{"Condition" : "Data6"},{"Condition" : "Data7"},{"Condition" : "Data8to17"},{"Condition" : "Data18to24"}]},
+		"Data2" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "2"]},{"Condition" : "Data3"},{"Condition" : "Data4"},{"Condition" : "Data5"},{"Condition" : "Data6"},{"Condition" : "Data7"},{"Condition" : "Data8to17"},{"Condition" : "Data18to24"}]},
+		"Data3" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "3"]},{"Condition" : "Data4"},{"Condition" : "Data5"},{"Condition" : "Data6"},{"Condition" : "Data7"},{"Condition" : "Data8to17"},{"Condition" : "Data18to24"}]},
+		"Data4" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "4"]},{"Condition" : "Data5"},{"Condition" : "Data6"},{"Condition" : "Data7"},{"Condition" : "Data8to17"},{"Condition" : "Data18to24"}]},
+		"Data5" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "5"]},{"Condition" : "Data6"},{"Condition" : "Data7"},{"Condition" : "Data8to17"},{"Condition" : "Data18to24"}]},
+		"Data6" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "6"]},{"Condition" : "Data7"},{"Condition" : "Data8to17"},{"Condition" : "Data18to24"}]},
+		"Data7" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "7"]},{"Condition" : "Data8to17"},{"Condition" : "Data18to24"}]},
+		"Data8" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "8"]},{"Condition" : "Data8to17"},{"Condition" : "Data18to24"}]},
+		"Data9" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "9"]},{"Condition" : "Data10"},{"Condition" : "Data11"},{"Condition" : "Data12"},{"Condition" : "Data13"},{"Condition" : "Data14"},{"Condition" : "Data15"},{"Condition" : "Data16"},{"Condition" : "Data17"},{"Condition" : "Data18to24"}]},
+		"Data10" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "10"]},{"Condition" : "Data11"},{"Condition" : "Data12"},{"Condition" : "Data13"},{"Condition" : "Data14"},{"Condition" : "Data15"},{"Condition" : "Data16"},{"Condition" : "Data17"},{"Condition" : "Data18to24"}]},
+		"Data11" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "11"]},{"Condition" : "Data12"},{"Condition" : "Data13"},{"Condition" : "Data14"},{"Condition" : "Data15"},{"Condition" : "Data16"},{"Condition" : "Data17"},{"Condition" : "Data18to24"}]},
+		"Data12" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "12"]},{"Condition" : "Data13"},{"Condition" : "Data14"},{"Condition" : "Data15"},{"Condition" : "Data16"},{"Condition" : "Data17"},{"Condition" : "Data18to24"}]},
+		"Data13" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "13"]},{"Condition" : "Data14"},{"Condition" : "Data15"},{"Condition" : "Data16"},{"Condition" : "Data17"},{"Condition" : "Data18to24"}]},
+		"Data14" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "14"]},{"Condition" : "Data15"},{"Condition" : "Data16"},{"Condition" : "Data17"},{"Condition" : "Data18to24"}]},
+		"Data15" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "15"]},{"Condition" : "Data16"},{"Condition" : "Data17"},{"Condition" : "Data18to24"}]},
+		"Data16" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "16"]},{"Condition" : "Data17"},{"Condition" : "Data18to24"}]},
+		"Data17" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "17"]},{"Condition" : "Data18to24"}]},
+		"Data18" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "18"]},{"Condition" : "Data18to24"}]},
+		"Data19" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "19"]},{"Condition" : "Data20"},{"Condition" : "Data21"},{"Condition" : "Data22"},{"Condition" : "Data23"},{"Condition" : "Data24"}]},
+		"Data20" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "20"]},{"Condition" : "Data21"},{"Condition" : "Data22"},{"Condition" : "Data23"},{"Condition" : "Data24"}]},
+		"Data21" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "21"]},{"Condition" : "Data22"},{"Condition" : "Data23"},{"Condition" : "Data24"}]},
+		"Data22" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "22"]},{"Condition" : "Data23"},{"Condition" : "Data24"}]},
+		"Data23" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "23"]},{"Condition" : "Data24"}]},
+		"Data24" : {"Fn::Equals" : [{"Ref" : "EBSCount"}, "24"]},
+		"Data8to17" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "8"]},{"Condition" : "Data9"},{"Condition" : "Data10"},{"Condition" : "Data11"},{"Condition" : "Data12"},{"Condition" : "Data13"},{"Condition" : "Data14"},{"Condition" : "Data15"},{"Condition" : "Data16"},{"Condition" : "Data17"}]},
+		"Data18to24" : {"Fn::Or" : [{"Fn::Equals" : [{"Ref" : "EBSCount"}, "18"]},{"Condition" : "Data19"},{"Condition" : "Data20"},{"Condition" : "Data21"},{"Condition" : "Data22"},{"Condition" : "Data23"},{"Condition" : "Data24"}]}
+    },
+    "Resources": {
+      "EBS1" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data1",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref" : "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol1",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+									{"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+									],
+						"VolumeType" : {"Ref" : "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach1" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data1",
+            "DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS1" },
+						"Device" : "xvdg"
+						}
+	   },
+		"EBS2" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data2",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol2",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+									{"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+									],
+						"VolumeType" : {"Ref" : "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach2" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data2",
+            "DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS2" },
+						"Device" : "xvdh"
+						}
+	   },
+      "EBS3" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data3",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol3",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+									{"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+									],
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach3" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data3",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS3" },
+						"Device" : "xvdi"
+						}
+	   },
+		"EBS4" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data4",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol4",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+									{"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+									],
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach4" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data4",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS4" },
+						"Device" : "xvdj"
+						}
+	   },
+		"EBS5" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data5",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol5",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+									{"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+									],
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach5" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data5",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS5" },
+						"Device" : "xvdk"
+						}
+	   },
+		"EBS6" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data6",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol6",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+									{"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+									],
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach6" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data6",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS6" },
+						"Device" : "xvdl"
+						}
+	   },
+		"EBS7" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data7",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol7",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+									{"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+									],
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach7" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data7",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS7" },
+						"Device" : "xvdm"
+						}
+	   },
+		"EBS8" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data8",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol8",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+									{"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+									],
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach8" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data8",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS8" },
+						"Device" : "xvdn"
+						}
+	   },
+		"EBS9" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data9",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol9",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+									{"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+									],
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach9" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data9",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS9" },
+						"Device" : "xvdo"
+						}
+	   },
+		"EBS10" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data10",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol10",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+								   {"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+								   ],
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach10" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data10",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS10" },
+						"Device" : "xvdp"
+						}
+	   },
+		"EBS11" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data11",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol11",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+								   {"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+								   ],
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach11" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data11",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS11" },
+						"Device" : "xvdq"
+						}
+	   },
+		"EBS12" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data12",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol12",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+								   {"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+								   ],
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach12" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data12",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS12" },
+						"Device" : "xvdr"
+						}
+	   },
+		"EBS13" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data13",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol13",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+								   {"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+								   ],
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach13" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data13",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS13" },
+						"Device" : "xvds"
+						}
+	   },
+		"EBS14" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data14",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol14",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+								   {"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+								   ],
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach14" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data14",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS14" },
+						"Device" : "xvdt"
+						}
+	   },
+		"EBS15" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data15",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol15",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+								   {"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+								   ],
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach15" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data15",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS15" },
+						"Device" : "xvdu"
+						}
+	   },
+		"EBS16" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data16",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol16",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+								   {"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+								   ],
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach16" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data16",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS16" },
+						"Device" : "xvdv"
+						}
+	   },
+		"EBS17" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data17",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol17",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+								   {"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+								   ],
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach17" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data17",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS17" },
+						"Device" : "xvdw"
+						}
+	   },
+		"EBS18" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data18",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol18",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+								   {"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+								   ],
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach18" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data18",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS18" },
+						"Device" : "xvdx"
+						}
+	   },
+		"EBS19" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data19",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol19",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+								   {"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+								   ],
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach19" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data19",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS19" },
+						"Device" : "xvdy"
+						}
+	   },
+		"EBS20" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data20",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol20",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+								   {"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+								 ],
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach20" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data20",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS20" },
+						"Device" : "xvdz"
+						}
+	   },
+		"EBS21" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data21",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol21",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+								   {"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+								 ],
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach21" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data21",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS21" },
+						"Device" : "xvdaa"
+						}
+	   },
+		"EBS22" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data22",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol22",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+								   {"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+								 ],						
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach22" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data22",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS22" },
+						"Device" : "xvdab"
+						}
+	   },
+		"EBS23" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data23",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol23",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+								   {"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+								 ],						
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach23" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data23",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS23" },
+						"Device" : "xvdac"
+						}
+	   },
+	   "EBS24" :{
+			"Type":"AWS::EC2::Volume",
+			"Condition" : "Data24",
+			"Properties" : {
+						"AvailabilityZone" : { "Ref": "AZval"},
+						"Iops" : {"Ref": "IOPS"},
+						"Size" : {"Ref" : "EBSsize"},
+						"Tags" : [ {"Key" : "Name", "Value" : {"Fn::Join": ["-",["EBSVol24",{"Ref": "UserNameTag"},{"Ref":"myinstance"}]]} },
+								   {"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+								   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+								 ],
+						"VolumeType" : {"Ref": "EBSType"}
+						},
+			"DeletionPolicy" : "Delete"
+	   },
+	   "EBSAttach24" : {
+			"Type" : "AWS::EC2::VolumeAttachment",
+			"Condition" : "Data24",
+			"DependsOn" : ["myinstance"],
+			"Properties" : {
+						"InstanceId" : { "Ref" : "myinstance" },
+						"VolumeId" : { "Ref" : "EBS24" },
+						"Device" : "xvdad"
+						}
+	   },
+       "myinstance" : {
+            "Type" : "AWS::EC2::Instance",
+            "Properties" : {
+                "ImageId" : {"Ref" : "AMIID"},
+                "InstanceType": { "Ref": "InstanceType" },
+                "SubnetId" : {"Ref" : "SubnetId" },
+                "KeyName": { "Ref": "KeyName" },
+		        "Tags" : [ {"Key" : "EnvironmentTag", "Value" : {"Ref": "EnvironmentTag"}},
+		        		   {"Key" : "Name", "Value" : {"Ref": "UserNameTag"}},
+		        		   {"Key" : "UserGroupTag", "Value": {"Ref":"UserGroupTag"}}
+		        		   ],		   
+                "BlockDeviceMappings" : [
+                						 {"DeviceName": "/dev/xvda",
+                						  "Ebs": {
+ 												              "DeleteOnTermination":"true",              						  
+                						          "VolumeSize": "20", 
+                						          "VolumeType" : {"Ref":"EBSType"},
+                                      "Iops" : { "Ref": "IOPS"}
+                						          }}
+                						 ]     
+            }
+        }
+     },
+     "Outputs" : {
+          "InstanceId" : {
+				"Value" : { "Ref" : "myinstance" },
+				"Description" : "Instance Id of newly created VSA instance"
+	      },
+	      "EBSvol1" : {
+	      		"Value" : { "Ref" : "EBS1" },
+				"Description" : "Volume ID of EBS vol #1.",
+				"Condition" : "Data1"
+	      },
+	      "EBSvol2" : {
+	      		"Value" : { "Ref" : "EBS2" },
+				"Description" : "Volume ID of EBS vol #2.",
+				"Condition" : "Data2"
+	      },
+	      "EBSvol3" : {
+	      		"Value" : { "Ref" : "EBS3" },
+				"Description" : "Volume ID of EBS vol #3.",
+				"Condition" : "Data3"
+	      },
+	      "EBSvol4" : {
+	      		"Value" : { "Ref" : "EBS4" },
+				"Description" : "Volume ID of EBS vol #4.",
+				"Condition" : "Data4"
+	      },
+	      "EBSvol5" : {
+	      		"Value" : { "Ref" : "EBS5" },
+				"Description" : "Volume ID of EBS vol #5.",
+				"Condition" : "Data5"
+	      },
+	      "EBSvol6" : {
+	      		"Value" : { "Ref" : "EBS6" },
+				"Description" : "Volume ID of EBS vol #6.",
+				"Condition" : "Data6"
+	      },
+	      "EBSvol7" : {
+	      		"Value" : { "Ref" : "EBS7" },
+				"Description" : "Volume ID of EBS vol #7.",
+				"Condition" : "Data7"
+	      },
+	      "EBSvol8" : {
+	      		"Value" : { "Ref" : "EBS8" },
+				"Description" : "Volume ID of EBS vol #8.",
+				"Condition" : "Data8"
+	      },
+	      "EBSvol9" : {
+	      		"Value" : { "Ref" : "EBS9" },
+				"Description" : "Volume ID of EBS vol #9.",
+				"Condition" : "Data9"
+	      },
+	      "EBSvol10" : {
+	      		"Value" : { "Ref" : "EBS10" },
+				"Description" : "Volume ID of EBS vol #10.",
+				"Condition" : "Data10"
+	      },
+	      "EBSvol11" : {
+	      		"Value" : { "Ref" : "EBS11" },
+				"Description" : "Volume ID of EBS vol #11.",
+				"Condition" : "Data11"
+	      },
+	      "EBSvol12" : {
+	      		"Value" : { "Ref" : "EBS12" },
+				"Description" : "Volume ID of EBS vol #12.",
+				"Condition" : "Data12"
+	      },
+	      "EBSvol13" : {
+	      		"Value" : { "Ref" : "EBS13" },
+				"Description" : "Volume ID of EBS vol #13.",
+				"Condition" : "Data13"
+	      },
+	      "EBSvol14" : {
+	      		"Value" : { "Ref" : "EBS14" },
+				"Description" : "Volume ID of EBS vol #14.",
+				"Condition" : "Data14"
+	      },
+	      "EBSvol15" : {
+	      		"Value" : { "Ref" : "EBS15" },
+				"Description" : "Volume ID of EBS vol #15.",
+				"Condition" : "Data15"
+	      },
+	      "EBSvol16" : {
+	      		"Value" : { "Ref" : "EBS16" },
+				"Description" : "Volume ID of EBS vol #16.",
+				"Condition" : "Data16"
+	      },
+	      "EBSvol17" : {
+	      		"Value" : { "Ref" : "EBS17" },
+				"Description" : "Volume ID of EBS vol #17.",
+				"Condition" : "Data17"
+	      },
+	      "EBSvol18" : {
+	      		"Value" : { "Ref" : "EBS18" },
+				"Description" : "Volume ID of EBS vol #18.",
+				"Condition" : "Data18"
+	      },
+	      "EBSvol19" : {
+	      		"Value" : { "Ref" : "EBS19" },
+				"Description" : "Volume ID of EBS vol #19.",
+				"Condition" : "Data19"
+	      },
+	      "EBSvol20" : {
+	      		"Value" : { "Ref" : "EBS20" },
+				"Description" : "Volume ID of EBS vol #20.",
+				"Condition" : "Data20"
+	      },
+	      "EBSvol21" : {
+	      		"Value" : { "Ref" : "EBS21" },
+				"Description" : "Volume ID of EBS vol #21.",
+				"Condition" : "Data21"
+	      },
+	      "EBSvol22" : {
+	      		"Value" : { "Ref" : "EBS22" },
+				"Description" : "Volume ID of EBS vol #22.",
+				"Condition" : "Data22"
+	      },
+	      "EBSvol23" : {
+	      		"Value" : { "Ref" : "EBS23" },
+				"Description" : "Volume ID of EBS vol #23.",
+				"Condition" : "Data23"
+	      },
+	      "EBSvol24" : {
+	      		"Value" : { "Ref" : "EBS24" },
+				"Description" : "Volume ID of EBS vol #24.",
+				"Condition" : "Data24"
+	      }
+    }
+}
